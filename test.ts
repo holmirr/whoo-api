@@ -1,0 +1,7 @@
+const url = "https://www.google.co.jp/search?q=usdjpy&sca_esv=1e35dc1f4110e681&sxsrf=AHTn8zpPVURBl1S8YD-sPXcwmiRDWy8rHw%3A1738628852001&source=hp&ei=816hZ8OcOrbW1e8Pne3fyQc&iflsig=ACkRmUkAAAAAZ6FtBEjRHpBn_-b0Zk7_1jpj7llBJEhf&ved=0ahUKEwiD4veY4aiLAxU2a_UHHZ32N3kQ4dUDCBk&uact=5&oq=usdjpy&gs_lp=Egdnd3Mtd2l6IgZ1c2RqcHkyDxAjGIAEGCcYigUYRhiCAjILEAAYgAQYsQMYgwEyBRAAGIAEMgUQABiABDIFEAAYgAQyBRAAGIAEMgUQABiABDIFEAAYgAQyBRAAGIAEMgUQABiABEjfCFAAWP8GcAB4AJABAJgBjAOgAf0IqgEHMC40LjEuMbgBA8gBAPgBAZgCBqACpwnCAgoQIxiABBgnGIoFwgIQEAAYgAQYsQMYQxiDARiKBcICChAAGIAEGEMYigXCAgQQIxgnwgIKEAAYgAQYsQMYBMICBxAAGIAEGATCAg0QABiABBixAxiDARgEmAMAkgcJMC40LjEuMC4xoAeGIw&sclient=gws-wiz"
+
+const urlObj = new URL(url);
+const searchParams = urlObj.searchParams;
+
+console.log(urlObj);
+console.log(searchParams);

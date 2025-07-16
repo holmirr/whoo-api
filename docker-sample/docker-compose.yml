@@ -1,0 +1,54 @@
+services:
+  # Express.js APIサーバー
+  api:
+    # 'api-server'ディレクトリ内のDockerfileを使用してビルド
+    build: .
+    # コンテナ名
+    container_name: express-server
+    # .envファイルから環境変数を読み込む
+    env_file:
+      - .env
+    # ポートマッピング (ホスト:コンテナ)
+    # ホストの3001番ポートへのアクセスをコンテナの3001番ポートへ転送
+    ports:
+      - "${API_PORT}:${API_PORT}"
+    # dbサービスが起動してからapiサービスを起動する
+    depends_on:
+      db:
+        condition: service_healthy
+    # ボリュームマウント (開発時にソースコードの変更を即時反映させる場合に有効)
+    # tsconfigで "outDir": "./dist" を設定している前提
+    volumes:
+      - .:/app
+      - /app/node_modules
+    # コンテナを常に再起動
+    restart: always
+
+  # PostgreSQL DBサーバー
+  db:
+    # 公式のPostgreSQLイメージを使用
+    image: postgres:15-alpine
+    # コンテナ名
+    container_name: my_postgres_db
+    # .envファイルから環境変数を読み込む
+    env_file:
+      - .env
+    # ポートマッピング (ホスト:コンテナ)
+    # ホストの5432番ポートへのアクセスをコンテナの5432番ポートへ転送
+    ports:
+      - "5432:5432"
+    # 名前付きボリュームでDBのデータを永続化
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # データベースが正常に起動したかどうかのヘルスチェック
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # コンテナを常に再起動
+    restart: always
+
+# 名前付きボリュームの定義
+volumes:
+  pgdata:

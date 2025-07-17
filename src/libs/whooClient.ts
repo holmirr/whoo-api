@@ -1,6 +1,7 @@
 import MyFetch from "@holmirr/myfetch";
 import { UpdateLocationData, LocationData, LoginResponse, MyInfoResponse, Route } from "./types.js";
 import { WebSocket } from "ws";
+import { saveWhooUser, updateIsNoExec } from "./database.js";
 
 const { fetch, client } = MyFetch.create({
   defaultHeaders: {
@@ -95,7 +96,6 @@ export async function getMyInfo(token: string) {
   return data.user;
 }
 
-
 // interval: seconds, speed: km/h, batteryLevel: 0-1
 export async function execRoutes({ token, routes, interval, speed, batteryLevel, clients }: {
   token: string,
@@ -105,6 +105,7 @@ export async function execRoutes({ token, routes, interval, speed, batteryLevel,
   batteryLevel: number,
   clients: Map<string, WebSocket>
 }) {
+  await updateIsNoExec(token, true);
   for (const route of routes) {
     try{
     await updateLocation({
@@ -124,13 +125,21 @@ export async function execRoutes({ token, routes, interval, speed, batteryLevel,
       console.error(e);
     }
   }
-  updateLocation({
+  await updateLocation({
     token,
     latitude: routes[routes.length - 1].lat,
     longitude: routes[routes.length - 1].lng,
     speed: 0,
     batteryLevel,
     stayedAt: new Date(),
-  })
+  });
+  await saveWhooUser({
+    token,
+    lat: routes[routes.length - 1].lat,
+    lng: routes[routes.length - 1].lng,
+    stayedAt: new Date(),
+    batteryLevel,
+    noExec: false,
+  });
 }
 

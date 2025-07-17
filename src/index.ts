@@ -44,7 +44,7 @@ app.get("/", (req: Request, res: Response) => {
 app.post("/api/execRoutes", async (req: Request, res: Response) => {
   const token = req.decryptedToken;
   const { routes, interval, batteryLevel, speed } = req.body as RouteInfo;
-  await execRoutes({ token, routes, interval, speed, batteryLevel, clients });
+  execRoutes({ token, routes, interval, speed, batteryLevel, clients });
   res.send("success");
 });
 

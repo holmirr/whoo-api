@@ -29,3 +29,8 @@ export async function saveWhooUser({ token, lat, lng, stayedAt, batteryLevel, no
     `;
 
 }
+
+export async function getWhooUsers() {
+  const users = await sql`SELECT * FROM whoo_users WHERE no_exec = false`;
+  return users;
+}

@@ -106,6 +106,7 @@ export async function execRoutes({ token, routes, interval, speed, batteryLevel,
   clients: Map<string, WebSocket>
 }) {
   await updateIsNoExec(token, true);
+  console.log("no_exec is set to true.\nstart to exec routes");
   for (const route of routes) {
     try{
     await updateLocation({
@@ -125,6 +126,7 @@ export async function execRoutes({ token, routes, interval, speed, batteryLevel,
       console.error(e);
     }
   }
+  console.log("routes are executed");
   await updateLocation({
     token,
     latitude: routes[routes.length - 1].lat,
@@ -133,6 +135,7 @@ export async function execRoutes({ token, routes, interval, speed, batteryLevel,
     batteryLevel,
     stayedAt: new Date(),
   });
+  console.log("final location is updated");
   await saveWhooUser({
     token,
     lat: routes[routes.length - 1].lat,
@@ -141,5 +144,6 @@ export async function execRoutes({ token, routes, interval, speed, batteryLevel,
     batteryLevel,
     noExec: false,
   });
+  console.log("routes are stored in db.\nno_exec is set to false");
 }
 

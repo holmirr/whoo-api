@@ -3,13 +3,40 @@ import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "http";
 import { decrypt } from "./libs/decrypt.js";
 import { RouteInfo } from "./libs/types.js";
-import { execRoutes } from "./libs/whooClient.js";
+import { execRoutes, updateLocation } from "./libs/whooClient.js";
+import { getWhooUsers } from "./libs/database.js";
 
 declare module "http" {
   interface IncomingMessage {
     decryptedToken: string;
   }
 }
+
+setInterval(async () => {
+  try{
+    const whooUsers = await getWhooUsers();
+    const results = await Promise.allSettled(whooUsers.map(async (user) => {
+      if (!user.latitude || !user.longitude) return;
+      await updateLocation({
+        token: user.token,
+        latitude: user.latitude,
+        longitude: user.longitude,
+        speed: 0,
+        stayedAt: user.stayed_at,
+        batteryLevel: user.battery_level ?? 100,
+        isActive: false,
+      });
+    }));
+    const errorResults = results.filter((result) => result.status === "rejected");
+    if (errorResults.length > 0) {
+      console.error(errorResults);
+      throw new Error(errorResults.map(result => result.reason).join(", "));
+    }
+    console.log("location update is done.");
+  } catch (error) {
+    console.error(error);
+    }
+}, 30 * 1000);
 
 const app = express();
 const wss = new WebSocketServer({noServer: true});
@@ -44,7 +71,14 @@ app.get("/", (req: Request, res: Response) => {
 app.post("/api/execRoutes", async (req: Request, res: Response) => {
   const token = req.decryptedToken;
   const { routes, interval, batteryLevel, speed } = req.body as RouteInfo;
-  execRoutes({ token, routes, interval, speed, batteryLevel, clients });
+  console.log("execRoutes api is called");
+  try {
+    execRoutes({ token, routes, interval, speed, batteryLevel, clients });
+  } catch (e) {
+    console.error(e);
+    res.status(500).send("Internal Server Error");
+    return;
+  }
   res.send("success");
 });
 

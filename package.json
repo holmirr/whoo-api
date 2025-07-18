@@ -4,9 +4,9 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "dev": "tsx --env-file .env --watch src/index.ts",
+    "dev": "tsx --watch src/index.ts",
     "build": "tsc",
-    "start": "node -r dotenv/config dist/index.js"
+    "start": "node dist/index.js"
   },
   "keywords": [],
   "author": "",

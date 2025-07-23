@@ -72,10 +72,10 @@ app.get("/", (req: Request, res: Response) => {
 
 app.post("/api/execRoutes", async (req: Request, res: Response) => {
   const token = req.decryptedToken;
-  const { routes, interval, batteryLevel, speed } = req.body as RouteInfo;
+  const { routes, interval, batteryLevel, speed, expires } = req.body as RouteInfo;
   console.log("execRoutes api is called");
   try {
-    execRoutes({ token, routes, interval, speed, batteryLevel, clients });
+    execRoutes({ token, routes, interval, speed, batteryLevel, clients, expires: expires ? new Date(expires) : null });
   } catch (e) {
     console.error(e);
     res.status(500).send("Internal Server Error");

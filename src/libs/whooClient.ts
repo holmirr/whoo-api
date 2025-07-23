@@ -55,11 +55,11 @@ export async function updateLocation({ token, latitude, longitude, speed, batter
 
   if (stayedAt) {
     data["user_location[stayed_at]"] = stayedAt.toLocaleString(
-      "ja-JP", 
+      "ja-JP",
       {
-      timeZone: "UTC",
-    })
-    .replace(/\//g, "-") + " +0000";
+        timeZone: "UTC",
+      })
+      .replace(/\//g, "-") + " +0000";
   }
   const response = await fetch("https://www.wh00.ooo/api/user/location", {
     method: "PATCH",
@@ -97,30 +97,31 @@ export async function getMyInfo(token: string) {
 }
 
 // interval: seconds, speed: km/h, batteryLevel: 0-1
-export async function execRoutes({ token, routes, interval, speed, batteryLevel, clients }: {
+export async function execRoutes({ token, routes, interval, speed, batteryLevel, clients, expires }: {
   token: string,
   routes: Route[],
   interval: number,
   speed: number,
   batteryLevel: number,
-  clients: Map<string, WebSocket>
+  clients: Map<string, WebSocket>,
+  expires: Date | null
 }) {
   await updateIsNoExec(token, true);
   console.log("no_exec is set to true.\nstart to exec routes");
   for (const route of routes) {
-    try{
-    await updateLocation({
-      token,
-      latitude: route.lat,
-      longitude: route.lng,
-      speed, // km/h
-      batteryLevel
-    })
-    clients.get(token)?.send(JSON.stringify({
-      type: "location",
-      data: route,
-      id: 0
-    }));
+    try {
+      await updateLocation({
+        token,
+        latitude: route.lat,
+        longitude: route.lng,
+        speed, // km/h
+        batteryLevel
+      })
+      clients.get(token)?.send(JSON.stringify({
+        type: "location",
+        data: route,
+        id: 0
+      }));
       await new Promise(resolve => setTimeout(resolve, interval * 1000));
     } catch (e) {
       console.error(e);
@@ -143,6 +144,7 @@ export async function execRoutes({ token, routes, interval, speed, batteryLevel,
     stayedAt: new Date(),
     batteryLevel,
     noExec: false,
+    expires: expires
   });
   console.log("routes are stored in db.\nno_exec is set to false");
 }

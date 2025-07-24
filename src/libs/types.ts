@@ -152,5 +152,7 @@ export type whooUesr = {
   latitude: number | null,
   longitude: number | null,
   stayed_at: Date | null,
-  battery_level: number | null
+  battery_level: number | null,
+  is_no_exec: boolean,
+  expires: Date | null,
 }

@@ -1,7 +1,7 @@
 import MyFetch from "@holmirr/myfetch";
 import { UpdateLocationData, LocationData, LoginResponse, MyInfoResponse, Route } from "./types.js";
 import { WebSocket } from "ws";
-import { saveWhooUser, updateIsNoExec } from "./database.js";
+import { saveWhooUser, updateIsNoExec, getWhooUsers } from "./database.js";
 
 const { fetch, client } = MyFetch.create({
   defaultHeaders: {
@@ -149,3 +149,25 @@ export async function execRoutes({ token, routes, interval, speed, batteryLevel,
   console.log("routes are stored in db.\nno_exec is set to false");
 }
 
+export async function ReflectLocations() {
+  const whooUsers = await getWhooUsers();
+    const results = await Promise.allSettled(whooUsers.map(async (user) => {
+      if (!user.latitude || !user.longitude) return;
+      await updateLocation({
+        token: user.token,
+        latitude: user.latitude,
+        longitude: user.longitude,
+        speed: 0,
+        stayedAt: user.stayed_at,
+        batteryLevel: user.battery_level ?? 100,
+        isActive: false,
+      });
+    }));
+    const errorResults = results.filter((result) => result.status === "rejected");
+    if (errorResults.length > 0) {
+      console.error(errorResults);
+      throw new Error(errorResults.map(result => result.reason).join(", "));
+    }
+    const successResultsLength = results.filter((result) => result.status === "fulfilled").length;
+    console.log(`location update is done. ${successResultsLength} users are updated.`);
+}

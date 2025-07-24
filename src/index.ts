@@ -5,8 +5,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "http";
 import { decrypt } from "./libs/decrypt.js";
 import { RouteInfo } from "./libs/types.js";
-import { execRoutes, updateLocation } from "./libs/whooClient.js";
-import { getWhooUsers } from "./libs/database.js";
+import { execRoutes, ReflectLocations } from "./libs/whooClient.js";
 
 declare module "http" {
   interface IncomingMessage {
@@ -14,41 +13,47 @@ declare module "http" {
   }
 }
 
-setInterval(async () => {
-  try{
-    const whooUsers = await getWhooUsers();
-    const results = await Promise.allSettled(whooUsers.map(async (user) => {
-      if (!user.latitude || !user.longitude) return;
-      await updateLocation({
-        token: user.token,
-        latitude: user.latitude,
-        longitude: user.longitude,
-        speed: 0,
-        stayedAt: user.stayed_at,
-        batteryLevel: user.battery_level ?? 100,
-        isActive: false,
-      });
-    }));
-    const errorResults = results.filter((result) => result.status === "rejected");
-    if (errorResults.length > 0) {
-      console.error(errorResults);
-      throw new Error(errorResults.map(result => result.reason).join(", "));
-    }
-    console.log("location update is done.");
-  } catch (error) {
-    console.error(error);
-    }
-}, 30 * 1000);
+declare module "ws" {
+  interface WebSocket {
+    isActive: boolean;
+  }
+}
+
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
+const REFLECT_INTERVAL = 30 * 1000;
 
 const app = express();
+const server = createServer(app);
 const wss = new WebSocketServer({noServer: true});
+
 setInterval(() => {
   wss.clients.forEach(client => client.send("ping"));
 }, 10000);
 
-const port = 3001;
-
 const clients = new Map<string, WebSocket>();
+
+const checkConnection = async () => {
+  wss.clients.forEach((ws) => {
+    if (!ws.isActive) {
+      const targetToken = Array.from(clients.keys()).find((token) => clients.get(token) === ws);
+      if (targetToken) {
+        clients.delete(targetToken);
+      }
+      ws.terminate();
+    }
+    ws.ping();
+    ws.isActive = false;
+  })
+}
+
+const interval = setInterval(async () => {
+  try{
+    await ReflectLocations();
+    checkConnection();
+  } catch (error) {
+    console.error(error);
+    }
+}, REFLECT_INTERVAL);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   console.log("request received");
@@ -84,8 +89,6 @@ app.post("/api/execRoutes", async (req: Request, res: Response) => {
   res.send("success");
 });
 
-const server = createServer(app);
-
 server.on("upgrade", (request, socket, head) => {
   if (!request.url) {
     console.log("No URL");
@@ -109,8 +112,13 @@ server.on("upgrade", (request, socket, head) => {
 });
 
 wss.on("connection", (ws) => {
+  ws.isActive = true;  
   ws.on("message", (message) => {
     console.log("Received message:", message.toString());
+    ws.isActive = true;
+  });
+  ws.on("pong", () => {
+    ws.isActive = true;
   });
   ws.on("close", () => {
     const targetToken = Array.from(clients.keys()).find((key) => clients.get(key) === ws);
@@ -120,6 +128,6 @@ wss.on("connection", (ws) => {
   });
 });
 
-server.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });

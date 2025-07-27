@@ -36,3 +36,7 @@ export async function getWhooUsers() {
   const users = await sql<whooUesr[]>`SELECT * FROM whoo_users WHERE no_exec = false`;
   return users;
 }
+
+export async function deleteLatLng(token: string) {
+  await sql`UPDATE whoo_users SET latitude = NULL, longitude = NULL, expires = NULL, stayed_at = NULL, no_exec = NULL WHERE token = ${token}`;
+}

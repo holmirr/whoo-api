@@ -9,7 +9,7 @@ export type RouteInfo = {
   interval: number;
   batteryLevel: number;
   speed: number;
-  expires: string | null;
+  expiresDate: string | null;
 }
 
 export type UpdateLocationData = {

@@ -37,6 +37,7 @@ const clientsMap = new Map<string, WebSocket>();
 const isWalkingSet = new Set<string>();
 
 // wsクライアント一覧を回し、isActiveがfalseなクライアントをterminate()する。
+// .close()は相手が生きていることが前提の閉じ方。
 // isActiveをfalseにした後、ping()を実行することで、pongが帰ってきたらすぐにisActiveがtrueになる。
 // pongが帰ってこなかったらisActiveはfalseのまま。
 const checkConnection = () => {
@@ -125,7 +126,9 @@ app.post("/api/execRoutes", (req: Request, res: Response) => {
 
 // "upgrade"イベントはexpress.jsのappはハンドリングできない。（express.jsのappは"connection"イベントのみハンドリングできる）
 server.on("upgrade", (request, socket, head) => {
+  const requestNo = Math.floor(Math.random() * 1000000);
   try {
+    console.log(`${requestNo}th: server.on('upgrade') is called`);
     // なぜかrequest.urlがundefinedになることがあるらしいので、typescriptのためのチェック
     if (!request.url) {
       throw new Error("No URL");
@@ -138,18 +141,27 @@ server.on("upgrade", (request, socket, head) => {
     // 復号に失敗した場合は、catchブロックに飛び、socket.destroy()で接続を切る
     const decryptedToken = decrypt(token as string);
     request.decryptedToken = decryptedToken;
+    console.log(`${requestNo}th: token is decrypted`);
 
     // クライアントがすでに接続している場合は、すでに接続しているクライアントをclose()する
     // closeハンドラーでclientsMapからwsオブジェクトは削除してくれる。
-    clientsMap.get(decryptedToken)?.close();
+    if (clientsMap.has(decryptedToken)) {
+      clientsMap.get(decryptedToken)?.close();
+      console.log(`${requestNo}th: duplicate connection is closed.`);
+    } else {
+      console.log(`${requestNo}th: duplicate connection is not found.`);
+    }
 
     // request, socket, headをhttp.serverのコールバックからwss.handleUpgrade()に渡す。
     // wssに処理を移譲し、wss.handleUpgrade()がupgradeリクエストを処理し、接続を確立する。
     wss.handleUpgrade(request, socket, head, (ws) => {
+      console.log(`${requestNo}th: wss.handleUpgrade() is called`);
       // 接続を確立したら、クライアント一覧に追加する
       clientsMap.set(decryptedToken, ws);
+      console.log(`${requestNo}th: clientsMap.set() is called`);
       // emit()はonConnectionのコールバックを呼ぶ。(haneleUpgradeはコネクションを確立してもコールバックまでは呼ばない）
       wss.emit("connection", ws, request);
+      console.log(`${requestNo}th: wss.emit() is called`);
     });
   } catch (error) {
     console.error(error);
@@ -211,7 +223,8 @@ wss.on("connection", (ws, request: IncomingMessage) => {
     const targetToken = request.decryptedToken as string;
     console.log(`${targetToken.slice(0, 10)}... connection is closed`);
     if (targetToken) {
-      clientsMap.delete(targetToken);
+      const result = clientsMap.delete(targetToken);
+      console.log(`ws.delete() result: ${result}`);
     }
   });
 
@@ -221,6 +234,7 @@ wss.on("connection", (ws, request: IncomingMessage) => {
   // ただし、destroy()すらしない場合（電源抜くorWifi切断など）はonerrorもoncloseも呼ばれない。
   // →一定時間応答がなければ、onerror→oncloseが呼ばれるが、環境によってその時間が異なる→明示的にping, pongで時間を設定し、接続を確認する必要あり
   ws.on("error", (error) => {
+    console.log(`ws.error() is called`);
     console.error(error);
   });
 });

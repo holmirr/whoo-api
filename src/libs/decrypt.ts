@@ -3,6 +3,9 @@ import crypto from "crypto";
 const ALGORITHM = "aes-256-cbc";
 
 const TOKEN_KEY = process.env.TOKEN_KEY!;
+if (!TOKEN_KEY) {
+  throw new Error("TOKEN_KEY is not set in .env");
+}
 const key = Buffer.from(TOKEN_KEY, "utf8");
 
 if (key.length !== 32) {

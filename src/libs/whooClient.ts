@@ -301,6 +301,7 @@ export async function ReflectLocations() {
       batteryLevel: row.battery_level ?? 100,
       isActive: false,
     });
+    // もし更新したら1を返し、スキップで返すundefinedと区別する。
     return 1;
   }));
 
@@ -312,7 +313,7 @@ export async function ReflectLocations() {
   }
 
   // 成功したPromiseの数を取得する。
-  // lat,lngがnullの場合とexpiresが過去の場合はundefinedを返し、スキップされているので、成功したPromiseの数には含めない。
+  // lat,lngがnullの場合とexpiresが過去の場合はundefinedを返し、スキップされているので、成功したPromiseの数には含めない。成功したPromiseは1を返している。
   const successResultsLength = results.filter((result) => result.status === "fulfilled" && result.value !== undefined).length;
   console.log(`location update is done. ${successResultsLength} users are updated.`);
 }

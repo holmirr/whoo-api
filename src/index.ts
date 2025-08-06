@@ -53,7 +53,7 @@ const checkConnection = () => {
 // 定期的に(1)dbから位置情報を取得しwhooに反映、(2)クライアントの接続状況を確認する（死んでいる接続のクライアントを破棄する）
 const interval = setInterval(() => {
   // イベントループを用い、(1)と(2)を並行して実行する。
-  ReflectLocations().catch((error) => {
+  ReflectLocations(clientsMap).catch((error) => {
     console.error(error);
   });
   try {
@@ -102,30 +102,22 @@ app.post("/api/execRoutes", (req: Request, res: Response) => {
   const { routes, interval, batteryLevel, speed, expiresDate } = req.body as RouteInfo;
   console.log("execRoutes api is called");
 
-  // execRoutes()は最初のawaitに遭遇するまでは同期的に、await以降は戻り値としてPromiseを返し、非同期的にPromiseチェーンで実行される。
-  // まず同期的処理でclients.has(token)をチェックし、なければエラーを投げる→catchで補足され、res.send()でエラーメッセージを返信する。
-  // その後、非同期処理部分を実行するが、結果とエラーはPromiseチェーンで補足され、apiのレスポンスとしてではなくwebsocketのメッセージとして送信する。
-  try {
-    //まず、websocketの接続状況をチェックする。もし接続していなければ、エラーを投げる。
-    //※execRoute()内において最初のawait前の処理自体は同期的だが、同部位のエラーに関しては非同期的に補足される。（つまり、呼び出し元で捉える場合、await+try-catchで囲むか、.catch()で補足するかの２択）
-    //歩行中全時間においてWebSocket接続は必須ではないが、最初くらいは接続していてほしい。
-    if (!clientsMap.has(token)) {
-      throw new Error("WebScoket connection is not established");
-    }
-  } catch (e) {
-    console.error(e);
-    res.status(500).send((e as Error).message);
+  //まず、websocketの接続状況をチェックする。もし接続していなければ、エラーレスポンスを返す。
+  
+  //歩行中全時間においてWebSocket接続は必須ではないが、最初くらいは接続していてほしい。
+  if (!clientsMap.has(token)) {
+    console.error("WebScoket connection is not established");
+    res.status(500).send("WebScoket connection is not established");
     return;
   }
+//※async関数内において最初のawait前の処理自体は同期的だが、関数の結果自体が内部的にPromise.resolve()でラップされるので、同部位のエラーに関しても非同期的に補足される。（つまり、呼び出し元で捉える場合、await+try-catchで囲むか、.catch()で補足するかの２択）
   execRoutes({ token, routes, interval, speed, batteryLevel, clientsMap, isWalkingSet, expires: expiresDate ? new Date(expiresDate) : null });
   res.send("success");
 });
 
 // "upgrade"イベントはexpress.jsのappはハンドリングできない。（express.jsのappは"connection"イベントのみハンドリングできる）
 server.on("upgrade", (request, socket, head) => {
-  const requestNo = Math.floor(Math.random() * 1000000);
   try {
-    console.log(`${requestNo}th: server.on('upgrade') is called`);
     // なぜかrequest.urlがundefinedになることがあるらしいので、typescriptのためのチェック
     if (!request.url) {
       throw new Error("No URL");
@@ -134,31 +126,24 @@ server.on("upgrade", (request, socket, head) => {
     const searchParams = new URL(request.url, `http://${request.headers.host}`).searchParams;
     const token = searchParams.get("token");
 
-    /* // 復号し、request.decryptedTokenに格納する
+    // 復号し、request.decryptedTokenに格納する
     // 復号に失敗した場合は、catchブロックに飛び、socket.destroy()で接続を切る */
     const decryptedToken = decrypt(token as string);
     request.decryptedToken = decryptedToken;
-    console.log(`${requestNo}th: token is decrypted`);
 
-    // クライアントがすでに接続している場合は、すでに接続しているクライアントをclose()する
-    // closeハンドラーでclientsMapからwsオブジェクトは削除してくれる。
+    /* クライアントがすでに接続している場合は、すでに接続しているクライアントをclose()する
+    closeハンドラーでclientsMapからwsオブジェクトは削除してくれる。 */
     if (clientsMap.has(decryptedToken)) {
       clientsMap.get(decryptedToken)?.close();
-      console.log(`${requestNo}th: duplicate connection is closed.`);
-    } else {
-      console.log(`${requestNo}th: duplicate connection is not found.`);
-    }
+    } 
 
     // request, socket, headをhttp.serverのコールバックからwss.handleUpgrade()に渡す。
     // wssに処理を移譲し、wss.handleUpgrade()がupgradeリクエストを処理し、接続を確立する。
     wss.handleUpgrade(request, socket, head, (ws) => {
-      console.log(`${requestNo}th: wss.handleUpgrade() is called`);
       // 接続を確立したら、クライアント一覧に追加する
       clientsMap.set(decryptedToken, ws);
-      console.log(`${requestNo}th: clientsMap.set() is called`);
       // emit()はonConnectionのコールバックを呼ぶ。(haneleUpgradeはコネクションを確立してもコールバックまでは呼ばない）
       wss.emit("connection", ws, request);
-      console.log(`${requestNo}th: wss.emit() is called`);
     });
   } catch (error) {
     console.error(error);
@@ -221,7 +206,6 @@ wss.on("connection", (ws, request: IncomingMessage) => {
     console.log(`${targetToken.slice(0, 10)}... connection is closed`);
     if (targetToken) {
       const result = clientsMap.delete(targetToken);
-      console.log(`ws.delete() result: ${result}`);
     }
   });
 

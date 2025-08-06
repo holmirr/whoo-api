@@ -261,7 +261,7 @@ export async function execRoutes({ token, routes, interval, speed, batteryLevel,
       data: (e as Error).message,
       detail: "error in final location update or db update."
     }));
-    // 
+    // db更新に失敗した場合、no_execがtrueのままなので、falseに戻し、定例の位置情報更新を再開する。
     await updateIsNoExec(token, false);
   } 
   // 成功しても失敗しても、歩行中フラグを削除する。
@@ -271,7 +271,7 @@ export async function execRoutes({ token, routes, interval, speed, batteryLevel,
 }
 
 // 定期的に実行される、dbに保存されている位置情報をwhooに反映する関数。
-export async function ReflectLocations() {
+export async function ReflectLocations(clientsMap: Map<string, WebSocket>) {
   // dbからwhooユーザー一覧を取得する(戻り値はrowオブジェクトのリスト)
   // WHERE no_exec = false で、歩行中でないユーザーを取得している。
   const rows = await getWhooUsers();
@@ -288,6 +288,12 @@ export async function ReflectLocations() {
     // もしexpiresが無期限でなく、現在時刻より過去なら、dbから位置情報やその他情報を削除し、undefinedを返す。  
     if (row.expires && row.expires < new Date()) {
       await deleteLatLng(row.token);
+      const ws = clientsMap.get(row.token);
+      if (ws) {
+        ws.send(JSON.stringify({
+          type: "expired",
+        }));
+      }
       return;
     }
 

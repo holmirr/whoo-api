@@ -1,3 +1,4 @@
+// TODO whooとのws接続
 import "dotenv/config";
 
 import express, { Request, Response, NextFunction } from "express";
@@ -28,10 +29,6 @@ const app = express();
 const server = createServer(app);
 // もしコンストラクタ引数にserverを渡すと、upgradeイベントが自動的にwssに渡るだけでなく、自動的に接続を完了してしまう。
 const wss = new WebSocketServer({ noServer: true });
-
-setInterval(() => {
-  wss.clients.forEach(client => client.ping());
-}, 10000);
 
 const clientsMap = new Map<string, WebSocket>();
 const isWalkingSet = new Set<string>();
@@ -109,9 +106,9 @@ app.post("/api/execRoutes", (req: Request, res: Response) => {
   // まず同期的処理でclients.has(token)をチェックし、なければエラーを投げる→catchで補足され、res.send()でエラーメッセージを返信する。
   // その後、非同期処理部分を実行するが、結果とエラーはPromiseチェーンで補足され、apiのレスポンスとしてではなくwebsocketのメッセージとして送信する。
   try {
-    // まず、websocketの接続状況をチェックする。もし接続していなければ、エラーを投げる。
-    // ※execRoute()内において最初のawait前の処理自体は同期的だが、同部位のエラーに関しては非同期的に補足される。（つまり、呼び出し元で捉える場合、await+try-catchで囲むか、.catch()で補足するかの２択）
-    // 歩行中全時間においてWebSocket接続は必須ではないが、最初くらいは接続していてほしい。
+    //まず、websocketの接続状況をチェックする。もし接続していなければ、エラーを投げる。
+    //※execRoute()内において最初のawait前の処理自体は同期的だが、同部位のエラーに関しては非同期的に補足される。（つまり、呼び出し元で捉える場合、await+try-catchで囲むか、.catch()で補足するかの２択）
+    //歩行中全時間においてWebSocket接続は必須ではないが、最初くらいは接続していてほしい。
     if (!clientsMap.has(token)) {
       throw new Error("WebScoket connection is not established");
     }
@@ -137,8 +134,8 @@ server.on("upgrade", (request, socket, head) => {
     const searchParams = new URL(request.url, `http://${request.headers.host}`).searchParams;
     const token = searchParams.get("token");
 
-    // 復号し、request.decryptedTokenに格納する
-    // 復号に失敗した場合は、catchブロックに飛び、socket.destroy()で接続を切る
+    /* // 復号し、request.decryptedTokenに格納する
+    // 復号に失敗した場合は、catchブロックに飛び、socket.destroy()で接続を切る */
     const decryptedToken = decrypt(token as string);
     request.decryptedToken = decryptedToken;
     console.log(`${requestNo}th: token is decrypted`);

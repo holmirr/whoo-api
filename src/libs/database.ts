@@ -1,7 +1,11 @@
 import postgres from "postgres";
 import { whooUesr } from "./types.js";
-const sql = postgres(process.env.POSTGRES_URL!, { ssl: "require" });
-console.log(process.env.POSTGRES_URL);
+const POSTGRES_URL = process.env.POSTGRES_URL!;
+if (!POSTGRES_URL) {
+  throw new Error("POSTGRES_URL is not set in .env");
+}
+const sql = postgres(POSTGRES_URL, { ssl: "require" });
+
 
 export async function updateIsNoExec(token: string, no_exec: boolean) {
   await sql`UPDATE whoo_users SET no_exec = ${no_exec} WHERE token = ${token}`;
